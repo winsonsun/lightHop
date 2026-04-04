@@ -125,22 +125,49 @@ proxy_subnets=(
 $(for sub in "${PROXY_SUBNETS[@]}"; do echo "    \"$sub\""; done)
 )
 
+proxy_subnets6=(
+    # Add IPv6 subnets here if any
+)
+
 post_start() {
-    ipset create proxy_subnets hash:net 2>/dev/null || ipset flush proxy_subnets
+    # 1. Create a new ipset hash for our proxy subnets (IPv4)
+    ipset create proxy_subnets hash:net family inet 2>/dev/null || ipset flush proxy_subnets
     for subnet in "\${proxy_subnets[@]}"; do
         ipset add proxy_subnets "\$subnet"
     done
-    # Gatekeeper: Bypass proxy for non-matching subnets
     iptables -t nat -I SSTP_PREROUTING 1 -m set ! --match-set proxy_subnets src -j RETURN
     iptables -t mangle -I SSTP_PREROUTING 1 -m set ! --match-set proxy_subnets src -j RETURN
+
+    # 2. Create a new ipset hash for our proxy subnets (IPv6)
+    ipset create proxy_subnets6 hash:net family inet6 2>/dev/null || ipset flush proxy_subnets6
+    for subnet in "\${proxy_subnets6[@]}"; do
+        ipset add proxy_subnets6 "\$subnet"
+    done
+    ip6tables -t nat -I SSTP_PREROUTING 1 -m set ! --match-set proxy_subnets6 src -j RETURN
+    ip6tables -t mangle -I SSTP_PREROUTING 1 -m set ! --match-set proxy_subnets6 src -j RETURN
+
+    # 3. TCP MSS Clamping to prevent MTU issues
+    iptables -t mangle -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
+    ip6tables -t mangle -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
 }
 
 post_stop() {
     ipset destroy proxy_subnets 2>/dev/null
+    ipset destroy proxy_subnets6 2>/dev/null
+    iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
+    ip6tables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
 }
 
 ## optimized dns override
 start_dnsserver_chnroute() {
+    # Initialize the required chnroute ipsets that chinadns-ng would normally handle
+    ipset -X chnroute &>/dev/null
+    ipset -X chnroute6 &>/dev/null
+    ipset -R -exist <\$file_chnroute_set
+    ipset -R -exist <\$file_chnroute6_set
+    for privaddr in "\${chinadns_privaddr4[@]}"; do echo "-A chnroute \$privaddr"; done | ipset -R -exist &>/dev/null
+    for privaddr in "\${chinadns_privaddr6[@]}"; do echo "-A chnroute6 \$privaddr"; done | ipset -R -exist &>/dev/null
+
     local base_config=\$(echo "\$dnsmasq_common_config" | sed -E 's/^[[:space:]]*(cache-size|no-resolv|server)[[:space:]]*=.*\$//g')
     local dnsmasq_config_string="\$(cat <<EOT
 \$base_config
