@@ -1,0 +1,36 @@
+# ==========================================
+# ss-tproxy Node Bootstrap Configuration
+# ==========================================
+
+# --- Target Node ---
+REMOTE_HOST="root@192.168.20.23"
+
+# --- Ecosystem Settings (Profile: ecosystem) ---
+# Primary SS server for transparent proxying
+SS_SERVER_MAIN="3.3.3.3"
+SS_PORT_MAIN="1013"
+SS_PASS_MAIN="8763eeh6ePodie4sudu4le6IY="
+SS_METHOD_MAIN="chacha20"
+
+# Local Bindings for Ecosystem
+LOCAL_REDIR_PORT="1023"
+LOCAL_DNS_SOCKS_PORT="1023"  # Port for DNS-resolving ss-local
+DNSCRYPT_LISTEN="127.0.0.1:5310"
+
+# --- Standalone CF Settings (Profile: cf-standalone) ---
+# Redundant or CDN-wrapped SS instance
+SS_SERVER_CF="3.3.3.3"
+SS_PORT_CF="1013"
+SS_PASS_CF="8763eeh6ePodie4sudu4le6IY="
+SS_METHOD_CF="chacha20"
+LOCAL_CF_PORT="1033"
+
+# --- Subnet Routing ---
+# Define the internal subnets that SHOULD be transparently proxied.
+PROXY_SUBNETS=(
+    "10.10.6.0/24"
+)
+
+# --- GitHub Proxy Mirrors ---
+GH_MIRROR="https://ghproxy.net/https://github.com"
+RAW_MIRROR="https://ghproxy.net/https://raw.githubusercontent.com"

@@ -24,74 +24,33 @@ if [ "$TYPE" == "ecosystem" ]; then
     scp bin/ss-tproxy "$REMOTE_HOST:/usr/local/bin/ss-tproxy"
     ssh "$REMOTE_HOST" "chmod +x /usr/local/bin/ss-tproxy"
     
-    # 2. Setup SSLOCAL-DNS Systemd Service
-    echo "[2/4] Configuring sslocal-dns backbone..."
-    ssh "$REMOTE_HOST" "cat <<EOF > /etc/systemd/system/sslocal-dns.service
-[Unit]
-Description=Shadowsocks DNS Backbone (Port $LOCAL_DNS_SOCKS_PORT)
-After=network.target
+    # 2. Sync configurations from local backup
+    echo "[2/4] Syncing local configuration backups to node..."
+    rsync -avz --chown=root:root etc/ "$REMOTE_HOST:/etc/"
+    
+    # 3. Apply System Infrastructure Settings (Networking / OS)
+    echo "[3/4] Applying OS & Networking Configurations..."
+    ssh "$REMOTE_HOST" "sysctl -w net.ipv4.ip_forward=1 && echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-tproxy.conf"
+    ssh "$REMOTE_HOST" "systemctl daemon-reload && systemctl enable sslocal-dns.service 2>/dev/null || true"
 
-[Service]
-Type=simple
-User=root
-LimitNPROC=5000000
-LimitNOFILE=1000000
-ExecStart=/usr/local/bin/ss-local -c /etc/effective-tunnel/conf/server-conf-aws.json -6
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF"
-
-    # 3. Execute remote deployment logic
-    # Note: remote_deployment.sh handles config generation, logrotate, and hooks
-    echo "[3/4] Running remote deployment script..."
+    # 4. Execute remote deployment logic
+    echo "[4/4] Running remote deployment script..."
     ssh "$REMOTE_HOST" 'bash -s' < remote_deployment.sh
 
-    # 4. Final verification
-    echo "[4/4] Verifying ecosystem status..."
+    # Final verification
+    echo "Verifying ecosystem status..."
     ssh "$REMOTE_HOST" "ss-tproxy status"
 
 elif [ "$TYPE" == "cf-standalone" ]; then
     echo "=== Deploying Standalone CF Instance ==="
     
-    # 1. Generate and push JSON
-    echo "[1/3] Pushing CF configuration..."
-    ssh "$REMOTE_HOST" "mkdir -p /etc/effective-tunnel/conf"
-    ssh "$REMOTE_HOST" "cat <<EOF > /etc/effective-tunnel/conf/server-conf-cf.json
-{
-    \"server\": \"$SS_SERVER_CF\",
-    \"server_port\": $SS_PORT_CF,
-    \"local_address\": \"0.0.0.0\",
-    \"local_port\": $LOCAL_CF_PORT,
-    \"password\": \"$SS_PASS_CF\",
-    \"timeout\": 600,
-    \"method\": \"$SS_METHOD_CF\"
-}
-EOF"
+    # 1. Sync CF configurations from local backup
+    echo "[1/2] Syncing CF configuration..."
+    rsync -avz --chown=root:root etc/ "$REMOTE_HOST:/etc/"
 
-    # 2. Create Systemd Service
-    echo "[2/3] Configuring sslocal-cf service..."
-    ssh "$REMOTE_HOST" "cat <<EOF > /etc/systemd/system/sslocal-cf.service
-[Unit]
-Description=Shadowsocks CF Standalone (Port $LOCAL_CF_PORT)
-After=network.target
-
-[Service]
-Type=simple
-User=root
-LimitNPROC=5000000
-LimitNOFILE=1000000
-ExecStart=/usr/local/bin/ss-local -c /etc/effective-tunnel/conf/server-conf-cf.json
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF"
-    
-    # 3. Enable and Start
-    echo "[3/3] Starting standalone service..."
-    ssh "$REMOTE_HOST" "systemctl daemon-reload && systemctl enable --now sslocal-cf"
+    # 2. Enable and Start
+    echo "[2/2] Starting standalone service..."
+    ssh "$REMOTE_HOST" "systemctl daemon-reload && systemctl enable --now sslocal-cf 2>/dev/null || true"
     ssh "$REMOTE_HOST" "systemctl status sslocal-cf --no-pager"
 fi
 

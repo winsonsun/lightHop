@@ -24,6 +24,21 @@ check_port() {
 
 echo "=== Running Preflight Checks for $MODE ==="
 
+# 0. Local Backup Validation
+echo -n "[*] Checking Local Configurations... "
+if [ "$MODE" == "ecosystem" ]; then
+    if [ ! -d "etc/ss-tproxy" ] || [ ! -d "etc/systemd/system" ]; then
+        echo "[FAIL] Missing 'etc/ss-tproxy' or 'etc/systemd/system'. Did you run backup_node_configs.sh?"
+        exit 1
+    fi
+elif [ "$MODE" == "cf-standalone" ]; then
+    if [ ! -d "etc/effective-tunnel/conf" ]; then
+        echo "[FAIL] Missing 'etc/effective-tunnel/conf'. Did you run backup_node_configs.sh?"
+        exit 1
+    fi
+fi
+echo "[OK]"
+
 # 1. SSH Connectivity
 echo -n "[*] Checking SSH Connectivity... "
 ssh -q -o ConnectTimeout=5 "$REMOTE_HOST" exit || { echo "[FAIL] Cannot connect to $REMOTE_HOST"; exit 1; }
