@@ -7,11 +7,11 @@ if [[ -z "$MODE" ]]; then
     exit 1
 fi
 
-if [ ! -f "bootstrap.conf" ]; then
-    echo "[ERROR] bootstrap.conf not found!"
+if [ ! -f "@config/bootstrap.conf" ]; then
+    echo "[ERROR] @config/bootstrap.conf not found!"
     exit 1
 fi
-source bootstrap.conf
+source @config/bootstrap.conf
 
 check_port() {
     local port=$1
