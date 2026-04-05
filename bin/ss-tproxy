@@ -1157,9 +1157,8 @@ status() {
         udp_port_is_exists $proxy_udpport && echo "pxy/udp:  $(color_green '[running]')" || echo "pxy/udp:  $(color_red '[stopped]')"
     fi
     process_is_running $status_dnsmasq_pid && echo "dnsmasq:  $(color_green '[running]')" || echo "dnsmasq:  $(color_red '[stopped]')"
-    if is_chnroute_mode; then
-        process_is_running $status_chinadns_pid && echo "chinadns: $(color_green '[running]')" || echo "chinadns: $(color_red '[stopped]')"
-    fi
+    pgrep -x dnscrypt-proxy >/dev/null && echo "dnscrypt: $(color_green '[running]')" || echo "dnscrypt: $(color_red '[stopped]')"
+    systemctl is-active --quiet sslocal-dns && echo "ss-local: $(color_green '[running]')" || echo "ss-local: $(color_red '[stopped]')"
     if ! is_enabled_udp; then
         is_true "$ipv4" && { process_is_running $status_dns2tcp4_pid && echo "dns2tcp4: $(color_green '[running]')" || echo "dns2tcp4: $(color_red '[stopped]')"; }
         is_true "$ipv6" && { process_is_running $status_dns2tcp6_pid && echo "dns2tcp6: $(color_green '[running]')" || echo "dns2tcp6: $(color_red '[stopped]')"; }

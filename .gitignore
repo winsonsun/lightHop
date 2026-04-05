@@ -1,0 +1,4 @@
+node_20.23_backups/
+local_backups/
+*.pid
+*.set
