@@ -3,4 +3,4 @@ local_backups/
 *.pid
 *.set
 .env
-bootstrap.conf
+config/
